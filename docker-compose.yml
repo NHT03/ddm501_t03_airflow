@@ -100,6 +100,10 @@ services:
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
       MLFLOW_TRACKING_URI: http://mlflow:5000
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: "admin"
+      _AIRFLOW_WWW_USER_PASSWORD: "b"
+
     user: "${AIRFLOW_UID:-50000}:0"
     volumes:
       - ./dags:/opt/airflow/dags

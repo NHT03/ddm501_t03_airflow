@@ -9,25 +9,24 @@ Pipeline bao gồm đầy đủ quy trình MLOps:
 
 ## Services & Ports
 
-- **Airflow Web UI**: <http://127.0.0.1:18080> (User: `admin`)
-- **MLflow Tracking Server**: <http://127.0.0.1:15000>
+- **Airflow Web UI**: <http://127.0.0.1:18080> (User: `admin` | Mật khẩu: `b`)
+- **MLflow Tracking Server**: <http://127.0.0.1:15020>
+- **MinIO Web Console**: <http://127.0.0.1:19011> (User: `minio` | Mật khẩu: `minio123`)
 - **FastAPI Prediction API**: <http://127.0.0.1:18000> (Documentation Swagger tại <http://127.0.0.1:18000/docs>)
 
 ## Quick Start (Docker Compose)
 
 ```bash
-# 1. Khởi chạy toàn bộ hệ thống (Airflow + MLflow + FastAPI)
+# 1. Khởi chạy toàn bộ hệ thống
 docker compose up -d --build
 
-# 2. Lấy mật khẩu admin Airflow
-docker compose exec airflow cat /opt/airflow/standalone_admin_password.txt
-
-# 3. Kích hoạt DAG chạy thử trong Airflow:
+# 2. Kích hoạt DAG chạy thử trong Airflow:
 docker compose exec airflow airflow dags test wdbc_pipeline 2026-08-25
 
-# 4. Kiểm tra API dự đoán:
+# 3. Kiểm tra API dự đoán:
 python scripts/test_api.py
 ```
+
 
 ## Running Pipeline Locally
 
