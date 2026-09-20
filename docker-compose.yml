@@ -12,8 +12,8 @@
 name: ddm501-t03
 
 x-s3-env: &s3-env
-  AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
-  AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+  AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minio}
+  AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minio123}
   AWS_DEFAULT_REGION: us-east-1
   MLFLOW_S3_ENDPOINT_URL: http://minio:9000
 
@@ -23,15 +23,15 @@ services:
     image: postgres:16-alpine
     container_name: ddm501-t03-postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-mlflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mlflow}
+      POSTGRES_DB: ${POSTGRES_DB:-mlflow}
     ports:
       - "15432:5432"
     volumes:
       - ./pg-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mlflow} -d ${POSTGRES_DB:-mlflow}"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -39,12 +39,12 @@ services:
     restart: unless-stopped
 
   minio:
-    image: ${MINIO_IMAGE}
+    image: ${MINIO_IMAGE:-quay.io/minio/minio:latest}
     container_name: ddm501-t03-minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio123}
     ports:
       - "19010:9000"      # S3 API
       - "19011:9001"      # Web Console
@@ -59,17 +59,16 @@ services:
     entrypoint: ["python", "/opt/airflow/scripts/init_bucket.py"]
     environment:
       <<: *s3-env
-      MLFLOW_BUCKET: ${MLFLOW_BUCKET}
+      MLFLOW_BUCKET: ${MLFLOW_BUCKET:-mlflow}
     volumes:
       - ./scripts:/opt/airflow/scripts
     restart: "no"
-
 
   mlflow:
     build: .
     image: ddm501-t03-airflow:2.8.4
     container_name: ddm501-t03-mlflow
-    entrypoint: ["bash", "-c", "mlflow server --backend-store-uri postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB} --default-artifact-root s3://${MLFLOW_BUCKET}/ --host 0.0.0.0 --port 5000"]
+    entrypoint: ["bash", "-c", "mlflow server --backend-store-uri postgresql+psycopg2://${POSTGRES_USER:-mlflow}:${POSTGRES_PASSWORD:-mlflow}@postgres:5432/${POSTGRES_DB:-mlflow} --default-artifact-root s3://${MLFLOW_BUCKET:-mlflow}/ --host 0.0.0.0 --port 5000"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -129,8 +128,8 @@ services:
     environment:
       <<: *s3-env
       MLFLOW_TRACKING_URI: http://mlflow:5000
-      MODEL_NAME: ${MODEL_NAME}
-      MODEL_VERSION: ${MODEL_VERSION}
+      MODEL_NAME: ${MODEL_NAME:-wdbc_breast_cancer_model}
+      MODEL_VERSION: ${MODEL_VERSION:-latest}
     volumes:
       - ./api:/opt/airflow/api
       - ./data:/opt/airflow/data
@@ -138,6 +137,7 @@ services:
       mlflow:
         condition: service_healthy
     restart: unless-stopped
+
 
 
 
