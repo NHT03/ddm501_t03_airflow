@@ -90,9 +90,11 @@ services:
     build: .
     image: ddm501-t03-airflow:2.8.4
     container_name: ddm501-t03-airflow
-    command: standalone
+    command: bash -c "airflow db migrate && (airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password b || true) && echo 'b' > /opt/airflow/standalone_admin_password.txt && exec airflow standalone"
     ports:
       - "18080:8080"
+
+
     environment:
       <<: *s3-env
       AIRFLOW__CORE__EXECUTOR: SequentialExecutor

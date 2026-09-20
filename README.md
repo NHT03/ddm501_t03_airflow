@@ -20,12 +20,16 @@ Pipeline bao gồm đầy đủ quy trình MLOps:
 # 1. Khởi chạy toàn bộ hệ thống
 docker compose up -d --build
 
-# 2. Kích hoạt DAG chạy thử trong Airflow:
+# 2. Xem mật khẩu admin Airflow (Mặc định là 'b')
+docker compose exec airflow cat /opt/airflow/standalone_admin_password.txt
+
+# 3. Kích hoạt DAG chạy thử trong Airflow:
 docker compose exec airflow airflow dags test wdbc_pipeline 2026-08-25
 
-# 3. Kiểm tra API dự đoán:
+# 4. Kiểm tra API dự đoán:
 python scripts/test_api.py
 ```
+
 
 
 ## Running Pipeline Locally

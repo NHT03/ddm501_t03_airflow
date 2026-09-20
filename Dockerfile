@@ -21,5 +21,9 @@ RUN pip install --no-cache-dir \
 
 RUN pip install --no-cache-dir "mlflow==2.11.1" "email-validator>=2.0.0"
 
+# Pre-set default admin password to 'b' for standalone mode on any machine
+RUN echo "b" > /opt/airflow/standalone_admin_password.txt
+
+
 
 
