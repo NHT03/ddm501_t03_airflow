@@ -1,0 +1,145 @@
+# Tutorial 03 — Airflow
+#
+#   docker compose up -d --build      # first time: builds the image, then starts it
+#   docker compose ps                 # wait for STATUS = healthy (about a minute)
+#   docker compose exec airflow cat /opt/airflow/standalone_admin_password.txt
+#
+# On Linux, first create a .env file next to this one containing:
+#     AIRFLOW_UID=1000                # the number `id -u` prints
+#
+# Then open http://127.0.0.1:18080 and log in as `admin`.
+
+name: ddm501-t03
+
+x-s3-env: &s3-env
+  AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+  AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+  AWS_DEFAULT_REGION: us-east-1
+  MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: ddm501-t03-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "15432:5432"
+    volumes:
+      - ./pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  minio:
+    image: ${MINIO_IMAGE}
+    container_name: ddm501-t03-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "19010:9000"      # S3 API
+      - "19011:9001"      # Web Console
+    volumes:
+      - ./minio-data:/data
+    restart: unless-stopped
+
+  createbucket:
+    build: .
+    image: ddm501-t03-airflow:2.8.4
+    depends_on: [minio]
+    entrypoint: ["python", "/opt/airflow/scripts/init_bucket.py"]
+    environment:
+      <<: *s3-env
+      MLFLOW_BUCKET: ${MLFLOW_BUCKET}
+    volumes:
+      - ./scripts:/opt/airflow/scripts
+    restart: "no"
+
+
+  mlflow:
+    build: .
+    image: ddm501-t03-airflow:2.8.4
+    container_name: ddm501-t03-mlflow
+    entrypoint: ["bash", "-c", "mlflow server --backend-store-uri postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB} --default-artifact-root s3://${MLFLOW_BUCKET}/ --host 0.0.0.0 --port 5000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      createbucket:
+        condition: service_completed_successfully
+    environment:
+      <<: *s3-env
+    ports:
+      - "15020:5000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health').read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 40s
+    restart: unless-stopped
+
+  airflow:
+    build: .
+    image: ddm501-t03-airflow:2.8.4
+    container_name: ddm501-t03-airflow
+    command: standalone
+    ports:
+      - "18080:8080"
+    environment:
+      <<: *s3-env
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    user: "${AIRFLOW_UID:-50000}:0"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./data:/opt/airflow/data
+      - ./logs:/opt/airflow/logs
+      - ./api:/opt/airflow/api
+      - ./scripts:/opt/airflow/scripts
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
+    restart: unless-stopped
+
+  api:
+    build: .
+    image: ddm501-t03-airflow:2.8.4
+    container_name: ddm501-t03-api
+    entrypoint: ["bash", "-c", "cd /opt/airflow && PYTHONPATH=/opt/airflow uvicorn api.main:app --host 0.0.0.0 --port 8000"]
+    ports:
+      - "18000:8000"
+    environment:
+      <<: *s3-env
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MODEL_NAME: ${MODEL_NAME}
+      MODEL_VERSION: ${MODEL_VERSION}
+    volumes:
+      - ./api:/opt/airflow/api
+      - ./data:/opt/airflow/data
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    restart: unless-stopped
+
+
+
+
+

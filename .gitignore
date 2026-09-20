@@ -1,0 +1,30 @@
+# Python
+.venv/
+venv/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Airflow
+.airflow/
+airflow.db
+airflow-webserver.pid
+webserver_config.py
+standalone_admin_password.txt
+logs/
+
+# Data & Staging
+data/staging/
+data/raw/*.orig
+data/mlflow.db
+data/mlruns/
+
+# Docker Volumes (Postgres & MinIO)
+pg-data/
+minio-data/
+
+# Environment Variables & OS
+.env
+.DS_Store
+Thumbs.db
